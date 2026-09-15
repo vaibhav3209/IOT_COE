@@ -126,9 +126,32 @@ def get_all_faculty():
 
 
 
-# To write to :: renew later when we add any new category
-# curretnly it is being used for simulation_service
+# ----------- CACHE for SIMULATION ------------------
+def bot_usernames():
+    """
+        - Usage:
+            1. simulation->Services.py->class Student
+        - Deletion:
+            1. When a new student Register
+    """
+    cache_key = 'bot_usernames'
+    bot_usernames = cache.get(cache_key)
+
+    if bot_usernames is None:
+        bot_usernames = list(Student.objects
+                             .filter(std_deactivated_at__isnull = True)
+                             .values('std_roll_number')
+                             )
+    return bot_usernames
+
+
+
 def component_in_category_x(category_obj):
+    """
+        - Used in simulation->services.py->submit_request()
+        - Delete when:
+            1. add_component()
+    """
     cache_key = f"components_in_{category_obj.comp_cate_category_name}"
     components = cache.get(cache_key)
 
@@ -446,10 +469,9 @@ def submit_request(request):
 
 
 
-#=== note: Default dict is not loaded in html so convert it in dictionary ONLY  ===
 @admin_login_required
 def admin_dashboard(request):
-    # FOR new Entry ==>>  both issue_Date, return_date null
+    """ Load requests that have return date == NULL """
     requests_qs = (
         StudentIssueLog.objects
         .filter(std_issue_issue_date__isnull=True,
@@ -469,6 +491,9 @@ def admin_dashboard(request):
     for r in requests_qs:
         grouped_requests[r['component__comp_category__comp_cate_category_name']].append(r)
     # print(grouped_requests)
+
+    # ........ NOTE ...........
+    # defaultdict is not loaded in html, so convert it in dictionary ONLY
     return render(
         request,
         'final/teacher/admin_dashboard.html',
@@ -479,12 +504,10 @@ def admin_dashboard(request):
 
 @admin_login_required
 def add_new_project(request):
-
-#note:::  _id in the second statement is used as field name otherwise it needs to be a faculty instance
-#  and we don;t want any db hits
     if request.method == "POST":
         action = request.POST.get("action")
-        #  EDIT EXISTING PROJECT
+
+        # ...... EDIT EXISTING PROJECT .........
         if action == "edit":
             project_id = request.POST.get("project_id")
 
@@ -493,21 +516,18 @@ def add_new_project(request):
             project.avail_proj_faculty_associated_id = request.POST.get("faculty")
             project.save()
 
-        #  ADD NEW PROJECT
+        #  ........ ADD NEW PROJECT ...............
         else:
             AvailableProjects.objects.create(
                 avail_proj_project_name=request.POST.get("project_name"),
                 avail_proj_faculty_associated_id=request.POST.get("faculty"),
             )
 
-
-
-        # only invalidate cache
+        # ...... Invalidate Cache ............
         cache.delete("cached_all_available_projects")
-
         return redirect("final:add_new_project")
 
-#from cache
+    # .......... From CACHE .............
     projects = get_all_available_projects()
     faculties = get_all_faculty()
 
@@ -544,11 +564,9 @@ def add_new_faculty(request):
                 faculty_dept_id=branch_id
             )
 
-        # invalidate cache
+        # ..... Invalidate Cache ................
         cache.delete("cached_all_faculty")
-
         return redirect("final:add_new_faculty")
-
 
 
     faculties = get_all_faculty()
@@ -556,7 +574,6 @@ def add_new_faculty(request):
     return  render(request,"final/teacher/add_new_faculty.html",
                    {"faculties":faculties,
                     "branches":branches})
-
 
 
 
@@ -686,6 +703,9 @@ def add_component(request):
     except Exception:
         messages.error(request, f"Failed to add component {new_component}")
 
+    # -------- Invalidate Cache ------------------
+    cache.delete(f"components_in_{category.comp_cate_category_name}")
+
     return  redirect('final:inventory')
 
 
@@ -811,10 +831,7 @@ def update_status(request):
 
 @admin_login_required
 def all_students(request):
-    # NOTE: 1. ye get request se aara
-    #       2. getlist use karre as multiple aare
-
-
+    """ Taking multiple items from filter that's why using getlist. """
     selected_branches = request.GET.getlist("branch")
     selected_years = request.GET.getlist("year")
     selected_active = request.GET.getlist("active")
@@ -822,49 +839,47 @@ def all_students(request):
     name_query = request.GET.get("name", "").strip().lower()
     name_mode = request.GET.get("name_mode", "startswith")
 
-    # ***NOTE *** : Direct hit nahi karta db ko ye LAZYQUERY BANARHA HAI
+    # ...... NOTE: This doesn't hit DB directly, lazy evaluation ...............
     students = Student.objects.all()
 
-    # REQUIRED filters
+    # ....... FILTERS ................
     students = students.filter(
         std_branch__branches_branch_code__in=selected_branches,
         std_year__in=selected_years
     )
 
-    # Active / inactive
     if set(selected_active) == {"1"}:
         students = students.filter(std_deactivated_at__isnull=True)
     elif set(selected_active) == {"0"}:
         students = students.filter(std_deactivated_at__isnull=False)
 
-    # Optional name filter
     if name_query:
         if name_mode == "startswith":
             students = students.filter(std_full_name__istartswith=name_query)
         else:
             students = students.filter(std_full_name__icontains=name_query)
 
-    # 🔥 PAGINATION (DB hit happens here, with LIMIT/OFFSET)
+
+    # ...... DB hit here ......................
     paginator = Paginator(students,15)  # 15 students per page
     page_number = request.GET.get("page",1)
     page_obj = paginator.get_page(page_number)
 
-    # ✅ BUILD FILTER-SAFE QUERY STRING (NO PAGE)
+    #  BUILD FILTER-SAFE QUERY STRING (NO PAGE)
     querydict = request.GET.copy()
     querydict.pop("page", None)
 
 
     return render(request, "final/teacher/all_students.html", {
         "page_obj": page_obj,
-        "branches_list":Branches.objects.all(),
-    # send these back to template to retain filters
+        "branches_list":get_all_branches(),
     "selected_branches": selected_branches,
     "selected_years": selected_years,
     "selected_active": selected_active,
     "name_query": name_query,
     "name_mode": name_mode,
         "querystring": querydict.urlencode(),
-    'remove_filter':remove_filter
+    'remove_filter':remove_filter       # ..... Written below .......
     })
 
 
@@ -890,11 +905,6 @@ def student_details(request,id):
 
 
 
-
-
-#=======================================================================
-# Extra Logic
-#======================================================================
 @admin_login_required
 def remove_filter(request, key, value=None):
     q = request.GET.copy()
@@ -909,9 +919,8 @@ def remove_filter(request, key, value=None):
 
 
 
-# ================================================
-# API FUNCTIONS
-# ================================================
+# ------------------------------------
+# --------       API     -------------
 class AdminIssuePagination(PageNumberPagination):
     page_size = 100          # Items per page
     page_size_query_param = None  # Not allow client to set page size
@@ -973,37 +982,3 @@ class StudentIssueLogAPI(generics.ListAPIView):
         qs = qs.order_by(ordering)
 
         return qs
-
-
-
-
-
-
-
-
-#
-# ===============================
-# For teacher BOt to get Requested and approved dataclasses
-# ==========================
-
-@admin_login_required
-def pending_issue_requests_api(request):
-
-    requests_qs = (
-        StudentIssueLog.objects
-        .filter(
-            std_issue_issue_date__isnull=True,
-            std_issue_return_date__isnull=True
-        )
-        .values(
-            "id",
-            "component__comp_quantity_available",
-            "std_issue_quantity_issued",
-            "std_issue_form_date",
-            "component__comp_name",
-            "student__std_roll_number"
-        )
-    )
-
-    return JsonResponse(list(requests_qs), safe=False)
-    # return requests_qs

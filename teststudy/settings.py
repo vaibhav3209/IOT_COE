@@ -1,4 +1,3 @@
-#Below are Django comments Keep them Don't delete it
 """
 Django settings for teststudy project.
 
@@ -30,7 +29,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 """
 
-# ***NOTE*** : Refer 'dependencies' section in readme file
 # ========================
 # Standard Library
 # ========================
@@ -53,9 +51,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / "config" / ".env")
 
 
-# ------------------
+# ========================
 # ***  SECRETS  ***
-# ------------------
+# ========================
 SECRET_KEY = config('SECRET_KEY')
 
 
@@ -77,15 +75,6 @@ if CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS.split(",")
 else:
     CSRF_TRUSTED_ORIGINS = []
-
-
-# --------------------
-# for mail only TESTING
-# --------------------
-MAIL_API_KEY = os.environ.get("MAIL_API_KEY")
-
-DEFAULT_FROM_EMAIL = "smtp-relay.brevo.com"
-EMAIL_SENDER_NAME = "Inventory System"
 
 
 # --------------------
@@ -182,7 +171,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'teststudy.wsgi.application'
 
 
-# These are not used as wrapper alread have redirect() but ......  use them as safety net
+
 LOGIN_URL = 'final:login'
 LOGIN_REDIRECT_URL = 'final:student_dashboard'
 LOGOUT_REDIRECT_URL = 'final:login'
@@ -194,7 +183,7 @@ if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable not set")
 
 DATABASES = {
-    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=60)
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=0)
 }
 
 # DATABASES = {
@@ -204,7 +193,7 @@ DATABASES = {
 #     }
 # }
 
-# ----- is use LocalMemCache then it is not shared across servers -----
+# ----- if use LocalMemCache then, it is not shared across servers -----
 # CACHES = {
 #     "default": {
 #         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

@@ -45,8 +45,4 @@ urlpatterns = [
     path('teacher/all-students/<str:id>', views.student_details, name='student_details'),
 
     path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs"),
-
-
-# bot calls
-path( "teacher/api/pendingissues/",views.pending_issue_requests_api,name="pending_issues_api")
 ]
