@@ -1,6 +1,12 @@
 from django.apps import AppConfig
 
-# register evrey time you create a new app
+# ========================
+# - Register your app here every time
+#     we create it from django
+
+# - Also write it in settings.py-> Installed_apps
+# ========================
+
 class FinalConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'final'

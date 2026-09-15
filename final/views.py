@@ -1,16 +1,12 @@
-# ===============================
-# Standard Library
-# ===============================
+# ------------- Standard Library ---------------
 from datetime import datetime, timedelta, date
 from collections import defaultdict
 
 
-# ===============================
-# Django Core
-# ===============================
+# ------------- Django Core ---------------
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
-from django.http import HttpResponseBadRequest, HttpResponse, QueryDict
+from django.http import HttpResponseBadRequest, HttpResponse, QueryDict, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
@@ -18,39 +14,44 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 
 
-# ===============================
-# Django Authentication & Messages
-# ===============================
+# ------------- Django Authentication & Messages ---------------
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib import messages
 
 
-# ===============================
-# Third-Party Libraries
-# ===============================
-from rest_framework import generics
+# ------------- Third-Party Libraries ---------------
 
 
-# ===============================
-# Local
-# ===============================
+# ------------- Local Imports ---------------
 from .decorators import student_login_required, admin_login_required
-from .models import Student, StudentIssueLog, ComponentCategory, Component, Branches,AvailableProjects,Faculty
+from .models import (Student, StudentIssueLog, ComponentCategory,
+                     Component, Branches,AvailableProjects,Faculty
+                     )
 
-# ===============================
-# Api
-# ===============================
+
+# ------------- API ---------------
 from .serializers import StudentIssueLogSerializer
 from rest_framework import generics, permissions
 from rest_framework.renderers import JSONRenderer
 from rest_framework.pagination import PageNumberPagination
 
 
-#=======================================================================
-# GLOBAL CACHE:: RARELY CHANGES
-#======================================================================
+# ------------- Global Cache ---------------
 def get_all_available_projects():
+    """
+        - Below Print statements are used to see the effect of cache hit on Database or not.
+        - Usage in following functions:
+            1. request_components()
+            2. category_items()
+            3. add_new_project() { to show after/ before deletion}
+        - Delete and refresh instances from:
+            1. add_new_project() { refresh after deletion }
+
+        NOTE: We are setting `objects` directly to cache not names, ids etc.
+    """
+
+
     cache_key = "cached_all_available_projects"
     all_projects = cache.get(cache_key)
 
@@ -60,18 +61,21 @@ def get_all_available_projects():
                 'avail_proj_faculty_associated'
             )
         )
-        # Cache indefinitely
         cache.set(cache_key, all_projects, timeout=None)
         # print("All available projects cached -> 1 DB hit")
-    else:
-        # print("Retrieved all available projects from cache -> no DB hit")
-        pass
 
+    # print("Retrieved all available projects from cache -> no DB hit")
     return all_projects
 
 
 
 def get_all_branches():
+    """
+        - Usage in following functions:
+            1. add_new_faculty()
+         - Delete and refresh instances from:
+            1.
+    """
     cache_key = "cached_all_branches"
     branches = cache.get(cache_key)
 
@@ -84,6 +88,13 @@ def get_all_branches():
 
 
 def get_all_categories():
+    """
+        - Usage in following functions:
+            1. inventory()
+            2. inventory_items()
+        - Delete and refresh instances from:
+            1.
+    """
     cache_key = "cached_all_categories"
     categories = cache.get(cache_key)
 
@@ -96,6 +107,14 @@ def get_all_categories():
 
 
 def get_all_faculty():
+    """
+        - Usage in following functions:
+            1. add_new_project()
+            2. add_new_faculty {after deletion to set again}
+
+        - Delete and refresh instances from:
+            1. add_new_faculty()
+    """
     cache_key = "cached_all_faculty"
     faculty = cache.get(cache_key)
 
@@ -126,31 +145,6 @@ def component_in_category_x(category_obj):
     return components
 
 
-#=======================================================================
-# Cache all enrolled projects for a student ::: Until new enrollment  `
-#======================================================================
-# def cached_student_projects(student):
-#     cache_key = f"cached_student_{student.std_first_name}_projects"
-#     projects = cache.get(cache_key)
-#
-#     # use this to check....... PYTHON SHELL NOT WORKS AS LOCALMEMCACHE IS NOT SHARED ON DJANGO .... it is ONLY FOR BROWSER
-#     # print("retrieved from cache ==>> no db hit")
-#
-#     if projects is None:
-#
-#         projects = list(ProjectEnrolledStudents.objects.filter(
-#                         proj_enroll_student_id=student.std_id
-#                     ).select_related(
-#                         'proj_enroll_project',
-#                         'proj_enroll_project__avail_proj_faculty_associated'
-#                     ))
-#         # None for long-term
-#         # 15 days currently
-#         cache.set(cache_key, projects, timeout=1296000)
-#         # print(f"set cache for {student.std_id}==>> 1 db hit ")
-#     return projects
-
-
 
 #=======================================================================
 # Caching for DATA GENERATION BOT  `
@@ -167,15 +161,8 @@ def students_per_project(data_dict):
     return data
 
 
-#=======================================================================
-# Order of functions :::  Same as name tags `urls.py`
-#======================================================================
-# def home(request):
-    """ This function is No longer used """
-#     return render(request,'final/home.html')
 
-
-
+# ------------- Main functions ---------------
 def user_login(request):
     # ====== LOGIN  ======
     if request.method == 'POST'and request.POST.get("form_type") == "user_login":
@@ -192,7 +179,9 @@ def user_login(request):
                 student = Student.objects.get(std_roll_number=username.upper())
 
             except Student.DoesNotExist:
-                # put the page name in extra_tags to show message only in that page
+                # ......... Message Tags ............
+                # 1. Used to display message on respective pages
+                # 2. Easier to debug
                 messages.error(request, "Invalid email or password",extra_tags='login_error')
                 return render(request, 'final/login.html')
 
@@ -215,7 +204,8 @@ def user_login(request):
         branch = roll_number[5:7]
         std_year = request.POST.get("std_year")
 
-        # ==== basic validation ====
+        # ......... Validation ...........
+        # - Based on only these 2 fields as They are only defining Primary keys
         if Student.objects.filter(std_roll_number=roll_number).exists():
             messages.error(request, "Roll number already exists",extra_tags='login_error')
             return render(request, "final/login.html")
@@ -242,12 +232,6 @@ def user_login(request):
             messages.error(request, "Cannot create user. Validation Checks Failed.", extra_tags='signup_error')
             return render(request, "final/login.html")
 
-            """For Debugging"""
-            # import traceback
-            # traceback.print_exc()
-            # raise
-
-
         except IntegrityError:
             messages.error(request, "data violates constraints.",extra_tags='signup_error')
             return render(request, "final/login.html")
@@ -270,17 +254,17 @@ def student_dashboard(request):
 
 
 
-# === NOT used decorators here broken session unlogged user can also access this  button ===
 @require_POST
 def student_logout(request):
+    ''' Decorator `student_login_required` not used here as in broken session or unlogged user can also access this. '''
     request.session.flush()
     return redirect('final:login')
 
 
 
-# ==== THIS is Django based logout ========
 @require_POST
 def admin_logout(request):
+    ''' This is Django based logout '''
     logout(request)
     return redirect("final:login")
 
@@ -289,7 +273,7 @@ def admin_logout(request):
 @student_login_required
 def issued_items(request):
     if not request.GET:
-        # print("no  db hit direct load ")
+        # ------- No DB hit. ----------
         return render(request,"final/student/issued_items.html")
 
     # print("db hit happens")
@@ -297,7 +281,7 @@ def issued_items(request):
     issue_status = request.GET.get("issue_status")  # current / returned / None
     date_range = request.GET.get("date_range")  # 7d / 1m / 3m / all
     selected_categories = request.GET.getlist("category")
-    project_id = request.GET.get("project_id")    #from student dashboard
+
 
 
     qs = (
@@ -306,8 +290,6 @@ def issued_items(request):
         .select_related("component", "project")
     )
 
-    if project_id:
-        qs = qs.filter(project=project_id)
 
     if issue_status == "current":
         qs = qs.filter(std_issue_return_date__isnull=True)
@@ -354,7 +336,7 @@ def issued_items(request):
 
 @student_login_required
 def request_components(request):
-    # student = request.student
+    '''  Getting all projects from cache as it is needed in request sidebar  '''
     all_projects = get_all_available_projects()
     return render(request,
                   'final/student/request_components.html',
@@ -376,17 +358,17 @@ def category_items(request ,slug):
                   .order_by("-comp_name")
                   )
 
-    # student = request.student
     all_projects = get_all_available_projects()
 
-    paginator = Paginator(components, 15)  # 15 per page
+    # 1. Second argument is the number of items per page
+    # 2. This is lazy query only till here!
+    paginator = Paginator(components, 15)
     page_number = request.GET.get("page", 1)
 
-    # now this statement hits db before it was a lazy query
+    # ........ Here, it hits the DATABASE ...........
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'final/student/category_items.html', {
-        # 'components': components,    #no need to send after pagination
         'category_name': category.comp_cate_category_name,
         "all_projects": all_projects,
         "page_obj":page_obj
@@ -394,8 +376,6 @@ def category_items(request ,slug):
 
 
 
-
-# 7.c.  submit request from right sidebar
 @student_login_required
 def submit_request(request):
     if request.method != 'POST':
@@ -406,7 +386,7 @@ def submit_request(request):
     project_id= request.POST.get("project_id")
     # print(request.POST)
 
-    #get the project object --  direct id is not inserted
+    # .... Get the project object (direct id is not inserted) ....
     project = get_object_or_404(AvailableProjects,id=project_id)
     # print(component_ids,quantities)
     # print(project)
@@ -424,7 +404,6 @@ def submit_request(request):
     # print(student.std_full_name,student.std_roll_number)
 
     # ---- FETCH ALL COMPONENTS IN ONE QUERY (FAST) ----
-    # old one was giving multiple requset to database
     components_map = Component.objects.in_bulk(component_ids)
 
     issue_logs = []
@@ -583,22 +562,16 @@ def add_new_faculty(request):
 
 @admin_login_required
 def activity(request):
-    now = datetime.now()
-
-    # quick range
     quick_range = request.GET.get("quick_range", "today")
 
-    # optional custom range
+    # .... Optional ......
     from_date = request.GET.get("from_date")
     to_date = request.GET.get("to_date")
 
-    print(from_date,to_date,quick_range)
     issues = StudentIssueLog.objects.select_related(
         "component", "student", "project"
     ).order_by("-std_issue_issue_date")
 
-    #jo __str__ mein likha vo print hoga
-    # print(issues)
 
     # -------- DATE FILTER --------
     today = date.today()
@@ -626,33 +599,21 @@ def activity(request):
             issues = issues.filter(
                 std_issue_issue_date__gte=today - timedelta(days=7)
             )
-    #
-    print(issues)
-    # paginator = Paginator(issues,15)  # 15 students per page
-    # page_number = request.GET.get("page",1)
-    # page_obj = paginator.get_page(page_number)
-    #
-    # # ✅ BUILD FILTER-SAFE QUERY STRING (NO PAGE)
-    # querydict = request.GET.copy()
-    # querydict.pop("page", None)
 
 
     context = {
-        # "page_obj": page_obj,
         "issues":issues,
         "days": quick_range,
         "from_date": from_date,
         "to_date": to_date,
-        # "querystring": querydict.urlencode(),
     }
-    # print(page_obj)
     return render(request,'final/teacher/activity.html',context)
 
 
 
 @admin_login_required
 def approved(request):
-    # jo iisued entry hai uski return_date null hogi
+    ''' Records whose return_date == NULL are filtered here '''
     requests_approved = (StudentIssueLog.objects
                          .select_related("student", "component",
                                         "component__comp_category")
@@ -663,13 +624,10 @@ def approved(request):
         'component__comp_category__comp_cate_category_name', 'component__comp_quantity_available',
         'std_issue_quantity_issued').order_by('component__comp_category__comp_cate_category_name', '-std_issue_form_date'))
 
-    # Step 2: Group by category
     grouped_requests = defaultdict(list)
 
     for req in requests_approved:
         grouped_requests[req['component__comp_category__comp_cate_category_name']].append(req)
-
-    # print(grouped_requests.items())
 
     return render(request, 'final/teacher/approved.html', {
         'grouped_requests': dict(grouped_requests)})
@@ -678,6 +636,7 @@ def approved(request):
 
 @admin_login_required
 def inventory(request):
+    ''' Categories are taken from cache for add_component button'''
     categories = get_all_categories()
     return render(request,"final/teacher/inventory.html",{"categories":categories})
 
@@ -686,50 +645,48 @@ def inventory(request):
 @require_POST
 @admin_login_required
 def add_component(request):
-    #default mein empty string diya nahi to strip() dikkat akrta if None
-        new_component = request.POST.get("component_name","").strip()
-        new_category = request.POST.get("component_category")
+    new_component = request.POST.get("component_name","").strip()
+    new_category = request.POST.get("component_category")
 
-        try:
-            new_quantity = int(request.POST.get("component_qty"))
-        except (TypeError, ValueError):
-            messages.error(request, "Invalid quantity")
-            return redirect("final:inventory")
-
-#we can add this in databse constraints also but ye abhi exact match wala hi dekhega also
-    # ignoring lower or uppercase
-        # 🔍 DUPLICATE CHECK
-        if Component.objects.filter(
-            comp_name__iexact=new_component,
-            comp_category=new_category
-        ).exists():
-            messages.warning(
-                request,
-                f"Component '{new_component}' already exists ."
-            )
-            return redirect("final:inventory")
-
-        try:
-            category = ComponentCategory.objects.get(comp_cate_category_name=new_category)
-        except ComponentCategory.DoesNotExist:
-            messages.error(request, "Category not found")
-            return redirect("final:inventory")
+    try:
+        new_quantity = int(request.POST.get("component_qty"))
+    except (TypeError, ValueError):
+        messages.error(request, "Invalid quantity")
+        return redirect("final:inventory")
 
 
-        try:
-            Component.objects.create(
-                comp_name=new_component,
-                comp_qunatity_available=new_quantity,
-                comp_category=category
-            )
-            messages.success(
-                request,
-                f"Component '{new_component}' added in category {category}."
-            )
-        except Exception:
-            messages.error(request, f"Failed to add component {new_component}")
+    # ..... DUPLICATE CHECK .......
+    if Component.objects.filter(
+        comp_name__iexact=new_component,
+        comp_category=new_category
+    ).exists():
+        messages.warning(
+            request,
+            f"Component '{new_component}' already exists ."
+        )
+        return redirect("final:inventory")
 
-        return  redirect('final:inventory')
+    try:
+        category = ComponentCategory.objects.get(comp_cate_category_name=new_category)
+    except ComponentCategory.DoesNotExist:
+        messages.error(request, "Category not found")
+        return redirect("final:inventory")
+
+
+    try:
+        Component.objects.create(
+            comp_name=new_component,
+            comp_qunatity_available=new_quantity,
+            comp_category=category
+        )
+        messages.success(
+            request,
+            f"Component '{new_component}' added in category {category}."
+        )
+    except Exception:
+        messages.error(request, f"Failed to add component {new_component}")
+
+    return  redirect('final:inventory')
 
 
 
@@ -739,12 +696,13 @@ def inventory_items(request, slug):
         ComponentCategory,
         comp_cate_category_name=slug
     )
-    categories = ComponentCategory.objects.all()
     components = Component.objects.select_related('comp_category').filter(
         comp_category=category
     )
 
-# for editing components ::
+    # .... This will be used in edit Row ......
+    categories = ComponentCategory.objects.all()
+
     if request.method == 'POST':
         component_id = request.POST.get("component_id")
         action = request.POST.get("action")
@@ -762,7 +720,6 @@ def inventory_items(request, slug):
             component.comp_status = 0
             component.save(update_fields=['comp_status'])
 
-            # ye sab messages login form par dikh rhe hai inhe sahi karo
             messages.success(request, f"{component.comp_name} marked as deleted.")
 
 
@@ -835,8 +792,7 @@ def update_status(request):
                     # Deduct stock
                     component.comp_quantity_available -= log.std_issue_quantity_issued
 
-                    # increaase populraity by one
-                    component.comp_popularity+=1
+
                     component.save()
                     log.save()
 
@@ -1017,3 +973,37 @@ class StudentIssueLogAPI(generics.ListAPIView):
         qs = qs.order_by(ordering)
 
         return qs
+
+
+
+
+
+
+
+
+#
+# ===============================
+# For teacher BOt to get Requested and approved dataclasses
+# ==========================
+
+@admin_login_required
+def pending_issue_requests_api(request):
+
+    requests_qs = (
+        StudentIssueLog.objects
+        .filter(
+            std_issue_issue_date__isnull=True,
+            std_issue_return_date__isnull=True
+        )
+        .values(
+            "id",
+            "component__comp_quantity_available",
+            "std_issue_quantity_issued",
+            "std_issue_form_date",
+            "component__comp_name",
+            "student__std_roll_number"
+        )
+    )
+
+    return JsonResponse(list(requests_qs), safe=False)
+    # return requests_qs

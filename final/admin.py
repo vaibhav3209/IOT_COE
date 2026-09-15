@@ -1,7 +1,14 @@
+# ========================
+# Libraries and Import Models
+# ========================
 from django.contrib import admin
 from .models import (Student, Component, StudentIssueLog, ComponentCategory, Branches,
                      AvailableProjects,Faculty)
 
+
+# ========================
+# Register Models
+# ========================
 admin.register(ComponentCategory)
 admin.register(Branches)
 admin.register(AvailableProjects)
@@ -9,8 +16,15 @@ admin.register(Faculty)
 
 
 
+# ========================
+# - These are special fields which will be used
+#   when we use admin panel of django
 
-#*****NOTE::*****   if anything is foreign key aur usko yha likhte to vo print hota JO __STR()__ MEIN LIKHA HOGA
+#  *** NOTE::***
+#  - If anything is foreign key aur usko yha likhte to
+#     vo print hota JO __STR()__ MEIN LIKHA HOGA
+
+# ========================
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     list_display = ("std_roll_number", "std_first_name", "std_last_name")

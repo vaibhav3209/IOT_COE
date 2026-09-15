@@ -1,16 +1,25 @@
+# --------------- Libraries ---------------------
 from django.urls import path
 from django.conf import settings
+
+# --------------- Redirecting ---------------------
 from django.views.generic import RedirectView
 
+
+# ---------------- API Usage--------------------
 from . import views
 from .views import StudentIssueLogAPI
 
-#=======================================================================
-# Order of urls :::  Same order will be followed in  `views.py`
-#======================================================================
+
+# ------------------------------------
+# Note: Same order of urls will be used in
+#       `views.py` file for easier tracking
+# ------------------------------------
 
 app_name = "final"
 urlpatterns = [
+    # Empty path is necessary for home page ,but we directly start from login page
+    # that's why we used `RedirectView`
     path('', RedirectView.as_view(pattern_name='final:login', permanent=False), name='home'),
 
     path('login/', views.user_login, name="login"),
@@ -35,5 +44,9 @@ urlpatterns = [
     path('teacher/all-students/', views.all_students, name='all_students'),
     path('teacher/all-students/<str:id>', views.student_details, name='student_details'),
 
-    path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs")
+    path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs"),
+
+
+# bot calls
+path( "teacher/api/pendingissues/",views.pending_issue_requests_api,name="pending_issues_api")
 ]
