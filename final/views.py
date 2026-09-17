@@ -48,7 +48,11 @@ def get_all_available_projects():
         - Delete and refresh instances from:
             1. add_new_project() { refresh after deletion }
 
-        NOTE: We are setting `objects` directly to cache not names, ids etc.
+        NOTE:
+             1. We are setting `objects` directly to cache not names, ids etc.
+             2. Cache will store object of `AvailableProjects` joined with `Faculty`
+                for faculty names only
+            3. It will ** NOT ** be joined with `Branches` for faculty branch id -->> no need.
     """
 
 
@@ -73,6 +77,7 @@ def get_all_branches():
     """
         - Usage in following functions:
             1. add_new_faculty()
+            2. user_login -->> student signup
          - Delete and refresh instances from:
             1.
     """
@@ -93,7 +98,8 @@ def get_all_categories():
             1. inventory()
             2. inventory_items()
         - Delete and refresh instances from:
-            1.
+            1. When we add a new category
+            ## This Feature is not available to set new category.
     """
     cache_key = "cached_all_categories"
     categories = cache.get(cache_key)
@@ -132,11 +138,14 @@ def bot_usernames():
         - Usage:
             1. simulation->Services.py->class Student
         - Deletion:
-            1. When a new student Register
+            1. When a new student Register -->> user_login(signup) mein
+        - Purpose:
+            1. Required to get username for login credentials.
     """
     cache_key = 'bot_usernames'
     bot_usernames = cache.get(cache_key)
 
+    # .... Filter those who are `not` deactivated ......
     if bot_usernames is None:
         bot_usernames = list(Student.objects
                              .filter(std_deactivated_at__isnull = True)
@@ -148,7 +157,7 @@ def bot_usernames():
 
 def component_in_category_x(category_obj):
     """
-        - Used in simulation->services.py->submit_request()
+        - Used in simulation->services.py->Class BOT -> submit_request()
         - Delete when:
             1. add_component()
     """
@@ -169,22 +178,6 @@ def component_in_category_x(category_obj):
 
 
 
-#=======================================================================
-# Caching for DATA GENERATION BOT  `
-#======================================================================
-def students_per_project(data_dict):
-    cache_key = 'students_per_project'
-    data = cache.get(cache_key)
-
-    if data is None:
-        data = data_dict
-        cache.set(cache_key,data,timeout=None)
-
-    # return a dictionary of projectid as key and list of students
-    return data
-
-
-
 # ------------- Main functions ---------------
 def user_login(request):
     # ====== LOGIN  ======
@@ -193,27 +186,35 @@ def user_login(request):
             password = request.POST.get('password')
 
             if username.endswith("admin"):
+                # ........ ADMIN ONLY .....................
                 admin_user = authenticate(request,username=username,password=password)
 
                 if admin_user and admin_user.is_staff:
                     login(request, admin_user)
                     return redirect('final:admin_dashboard')
-            try:
-                student = Student.objects.get(std_roll_number=username.upper())
 
-            except Student.DoesNotExist:
-                # ......... Message Tags ............
-                # 1. Used to display message on respective pages
-                # 2. Easier to debug
-                messages.error(request, "Invalid email or password",extra_tags='login_error')
-                return render(request, 'final/login.html')
+                messages.error(request, "Invalid username or password.",extra_tags='login_error')
 
-            if check_password(password, student.std_password):
-                request.session['student_id'] = student.std_id          # custom session
-                request.session["student_name"] = student.std_full_name
-                return redirect('final:student_dashboard')
+            else :
+                # ......... Student Login .....................
+                # Checking DB using roll number
+                try:
+                    student = Student.objects.get(std_roll_number=username.upper())
 
-            messages.error(request, "Invalid email or password.",extra_tags='login_error')
+                except Student.DoesNotExist:
+                    # ......... Message Tags ............
+                    # 1. Used to display message on respective pages
+                    # 2. Easier to debug
+                    messages.error(request, "Student does not exist",extra_tags='login_error')
+                    return render(request, 'final/login.html')
+
+                if check_password(password, student.std_password):
+                    request.session['student_id'] = student.std_id          # custom session
+                    request.session["student_name"] = student.std_full_name
+                    return redirect('final:student_dashboard')
+                else:
+                    messages.error(request, "Invalid password.", extra_tags='login_error')
+
 
     # ====== Signup  ======
     if request.method == 'POST' and request.POST.get("form_type") == "user_signup":
@@ -237,7 +238,15 @@ def user_login(request):
             messages.error(request, "Email already registered",extra_tags='login_error')
             return render(request, "final/login.html")
 
-        std_branch = get_object_or_404(Branches,branches_rollno_code=branch)
+
+        # ....... Getting branch object from CACHE for branch entered in form ................
+        all_branches = get_all_branches()
+        std_branch = None
+
+        for branchobject in all_branches:
+            if branchobject.branches_rollno_code == branch:
+                std_branch = branchobject
+                break
 
         try:
             Student.objects.create(
@@ -261,6 +270,10 @@ def user_login(request):
 
 
         messages.success(request, "Registration successful. Please login.",extra_tags='login_success')
+
+        # ------ Invalidate Cache ------------
+        cache.delete('bot_usernames')
+
         return redirect("final:login")
 
     # ==== load initial login page ====
@@ -369,10 +382,25 @@ def request_components(request):
 
 @student_login_required
 def category_items(request ,slug):
-    category = get_object_or_404(
-        ComponentCategory,
-        comp_cate_category_name=slug
-    )
+    """
+        Note:
+            1. Only called when actual user surfs website.
+            2. Not called when we use BOTS as students
+
+        - Optimisations:
+            1. Load and store only names and category from cache.
+            2. Make a button to `see quantity` to reduce fetching quantities of
+                all components ,all at once.
+    """
+
+    # ....... Getting category object from CACHE for category in the `slug` ................
+    all_categories = get_all_categories()
+    category = None
+
+    for categoryobject in all_categories:
+        if categoryobject.comp_cate_category_name == slug:
+            category = categoryobject
+            break
 
     components = (
                 Component.objects
@@ -380,8 +408,6 @@ def category_items(request ,slug):
                   .filter(comp_category=category)
                   .order_by("-comp_name")
                   )
-
-    all_projects = get_all_available_projects()
 
     # 1. Second argument is the number of items per page
     # 2. This is lazy query only till here!
@@ -393,7 +419,7 @@ def category_items(request ,slug):
 
     return render(request, 'final/student/category_items.html', {
         'category_name': category.comp_cate_category_name,
-        "all_projects": all_projects,
+        "all_projects": get_all_available_projects(),
         "page_obj":page_obj
     })
 
@@ -401,6 +427,7 @@ def category_items(request ,slug):
 
 @student_login_required
 def submit_request(request):
+    """ For Student or botstudent side submitting components request.  """
     if request.method != 'POST':
         return HttpResponseBadRequest("Invalid request method")
 
@@ -409,7 +436,10 @@ def submit_request(request):
     project_id= request.POST.get("project_id")
     # print(request.POST)
 
-    # .... Get the project object (direct id is not inserted) ....
+    # ....
+    # 1. Get the project object (direct id is not inserted)
+    # ** 2. Don;t load it from cache as it doesn't have a `id` field in that
+    # ....
     project = get_object_or_404(AvailableProjects,id=project_id)
     # print(component_ids,quantities)
     # print(project)
@@ -471,11 +501,11 @@ def submit_request(request):
 
 @admin_login_required
 def admin_dashboard(request):
-    """ Load requests that have return date == NULL """
+    """ Load requests that have issue date == NULL """
+
     requests_qs = (
         StudentIssueLog.objects
-        .filter(std_issue_issue_date__isnull=True,
-                std_issue_return_date__isnull=True)
+        .filter(std_issue_issue_date__isnull=True)
         .values(
              'student__std_roll_number',
             'component__comp_name',
@@ -484,7 +514,7 @@ def admin_dashboard(request):
             'component__comp_quantity_available',
             'std_issue_quantity_issued'
         )
-        .order_by('component__comp_category__comp_cate_category_name', '-std_issue_form_date')
+        .order_by('-std_issue_form_date')
     )
 
     grouped_requests = defaultdict(list)
@@ -630,7 +660,7 @@ def activity(request):
 
 @admin_login_required
 def approved(request):
-    ''' Records whose return_date == NULL are filtered here '''
+    ''' Records whose issue_date <> NULL and return_date == NULL are filtered here '''
     requests_approved = (StudentIssueLog.objects
                          .select_related("student", "component",
                                         "component__comp_category")
@@ -639,7 +669,7 @@ def approved(request):
                          .values(
          'student__std_roll_number', 'std_issue_issue_date', 'component__comp_name',
         'component__comp_category__comp_cate_category_name', 'component__comp_quantity_available',
-        'std_issue_quantity_issued').order_by('component__comp_category__comp_cate_category_name', '-std_issue_form_date'))
+        'std_issue_quantity_issued').order_by('-std_issue_form_date'))
 
     grouped_requests = defaultdict(list)
 
@@ -683,11 +713,14 @@ def add_component(request):
         )
         return redirect("final:inventory")
 
-    try:
-        category = ComponentCategory.objects.get(comp_cate_category_name=new_category)
-    except ComponentCategory.DoesNotExist:
-        messages.error(request, "Category not found")
-        return redirect("final:inventory")
+    # ....... Getting category object from CACHE  ................
+    all_categories = get_all_categories()
+    category = None
+
+    for categoryobject in all_categories:
+        if categoryobject.comp_cate_category_name == new_category:
+            category = categoryobject
+            break
 
 
     try:
@@ -698,7 +731,7 @@ def add_component(request):
         )
         messages.success(
             request,
-            f"Component '{new_component}' added in category {category}."
+            f"Component '{new_component}' added in category {category.comp_cate_category_name}."
         )
     except Exception:
         messages.error(request, f"Failed to add component {new_component}")
@@ -712,22 +745,28 @@ def add_component(request):
 
 @admin_login_required
 def inventory_items(request, slug):
-    category = get_object_or_404(
-        ComponentCategory,
-        comp_cate_category_name=slug
-    )
+    # ....... Getting category object from CACHE for category in the `slug` ................
+    all_categories = get_all_categories()
+    category = None
+
+    for categoryobject in all_categories:
+        if categoryobject.comp_cate_category_name == slug:
+            category = categoryobject
+            break
+
+
     components = Component.objects.select_related('comp_category').filter(
         comp_category=category
     )
 
-    # .... This will be used in edit Row ......
-    categories = ComponentCategory.objects.all()
-
+    # .......... For EDIT ROW ...............
     if request.method == 'POST':
         component_id = request.POST.get("component_id")
         action = request.POST.get("action")
-        change_category = get_object_or_404(ComponentCategory,id=request.POST.get("category_id"))
         component = get_object_or_404(Component, id=component_id)
+
+        # NOTE: Cannot Take it from cache as category_id is not in cache
+        change_category = get_object_or_404(ComponentCategory,id=request.POST.get("category_id"))
 
         if action == "save":
             component.comp_name = request.POST.get("comp_name")
@@ -745,7 +784,7 @@ def inventory_items(request, slug):
 
     return render(request, 'final/teacher/inventory_items.html', {
         'components': components,
-        'categories':categories,
+        'categories':all_categories,
         'category_name': category.comp_cate_category_name,
     })
 
@@ -754,6 +793,7 @@ def inventory_items(request, slug):
 @require_POST
 @admin_login_required
 def update_status(request):
+    """ Teacher and BotAdmin side approving and issuing of requests. """
     roll_number = request.POST.get("roll_number")
     form_date = request.POST.get("form_date")
     issue_date = request.POST.get("issue_date")
@@ -761,7 +801,7 @@ def update_status(request):
     status_to_update = request.POST.get("status_to_update")
     # print("data is:", form_date, action, component_name, roll_number)
 
-
+    # ??????? compoentn , project aand student id se kar sakte kya -->> dates ka hata do
     if status_to_update in ("approve","reject"):
         logs = StudentIssueLog.objects.select_related("component", "student").filter(
             student__std_roll_number=roll_number,
@@ -802,7 +842,7 @@ def update_status(request):
                 if status_to_update == "approve":
                     if component.comp_quantity_available < log.std_issue_quantity_issued:
                         return HttpResponse(
-                            f"Not enough quantity available for {component.name}",
+                            f"Not enough quantity available for {component.comp_name}",
                             status=400
                         )
 

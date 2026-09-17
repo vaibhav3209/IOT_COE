@@ -203,7 +203,7 @@ class Bot:
 
 
 
-class Student:
+class StudentSimulator:
     """
     Usage:
             objectname = Student()
@@ -216,17 +216,101 @@ class Student:
     def __init__(self):
         self.password = os.getenv("BOT_PASSWORD")
 
+
+
     def issue(self):
         bot_student_list = bot_usernames()          # ....... List of dictionary hai. ..............
-        cohort = random.sample(bot_student_list, k=random.randint(3, 7))
+        cohort = random.sample(bot_student_list, k=random.randint(1,2))
 
         for student in cohort:
             bot = Bot()
             try:
-                bot.login(student["std_roll_number"], self.password)
-                bot.submit_request()
+                # ------- if he logged in, then only we will submit request else directly logout
+                if bot.login(student["std_roll_number"], self.password):
+                    bot.submit_request()
             except Exception as e:
                 print(f"[FAIL] {student['std_roll_number']}: {e}")
                 continue
             finally:
                 bot.logout('student')
+
+
+
+class TeacherSimulator:
+    """
+        Usage:
+    """
+
+    def __init__(self):
+        self.bot = Bot()
+        self.username = os.getenv('TEACHER')
+        self.password = os.getenv('TEACHER_PASS')
+        self.pending_url = f"{BASE_URL}/teacher/pendingissues/"
+        self.to_return_url = f"{BASE_URL}/teacher/to_return/"
+        self.update_status_url = f"{BASE_URL}/teacher/update-status/"
+
+
+
+    def _get_json(self, url):
+        resp = self.bot.session.get(url)
+        try:
+            return resp.json()
+        except ValueError:
+            print(f"Couldn't fetch {url} (status {resp.status_code}, not JSON)")
+            return []
+
+
+    def _update_status(self, item, status):
+        if status == "return":
+            issue_date = item["std_issue_issue_date"]
+        else :
+            issue_date = None
+
+        payload = {
+            "roll_number": item["student__std_roll_number"],
+            "component_name": item["component__comp_name"],
+            "form_date": item["std_issue_form_date"],
+            "status_to_update": status,
+            "issue_date": issue_date,
+        }
+        resp = self.bot._post(self.update_status_url, payload)
+        if resp.status_code != 200:
+            print(f"[FAIL] {status} {item['student__std_roll_number']}: {resp.status_code}")
+        return resp.status_code == 200
+
+
+
+    def run_daily_review(self, approve_pct=(0.7, 0.8), return_pct=(0.7, 0.8)):
+        """ NOTE: We are approving/ returning 70, 80 percent of request"""
+        if not self.bot.login(self.username, self.password):
+            print("Teacher not logged in")
+            return
+
+        try:
+            # ........... IMPORTANT NOTE ...........
+            # 1. While Approving "Issue_date" is nuLL in the response
+            pending = self._get_json(self.pending_url)
+            # print(pending)
+            if pending:
+                pct = random.uniform(*approve_pct)
+                k = round(len(pending) * pct)
+                to_approve = random.sample(pending, k)
+                for item in to_approve:
+                    self._update_status(item, "approve")
+
+            # ........... IMPORTANT NOTE ...........
+            # 1. While returning "Issue_date" is not nuLL in the response
+            returnable = self._get_json(self.to_return_url)
+            # print(returnable)
+            if returnable:
+                pct = random.uniform(*return_pct)
+                k = round(len(returnable) * pct)
+                to_return_batch = random.sample(returnable, k)
+                for item in to_return_batch:
+                    self._update_status(item, "return")
+        finally:
+            self.bot.logout(role="teacher")
+
+
+# a = TeacherSimulator()
+# a.run_daily_review()
