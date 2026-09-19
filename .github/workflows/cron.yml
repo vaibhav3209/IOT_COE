@@ -1,0 +1,14 @@
+name: Daily Review
+
+on:
+  schedule:
+    - cron: "0 0 * * *"     # once a day at midnight UTC time
+  workflow_dispatch: {}     # can trigger manually too
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call daily jobs endpoint
+        run: |
+          curl -sf "https://iot-coe.onrender.com/daily-jobs/?token=${{ secrets.CRON_SECRET }}"

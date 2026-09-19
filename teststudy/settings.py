@@ -64,6 +64,7 @@ DEBUG = config('DEBUG', cast=bool)
 
 RENDER_APP_URL = os.getenv('RENDER_APP_URL')
 
+CRON_SECRET = os.getenv('CRON_SECRET')
 
 ALLOWED_HOSTS=os.getenv("ALLOWED_HOSTS", "").split(",")
 

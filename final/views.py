@@ -19,6 +19,7 @@ from django.core.cache import cache
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password, check_password
 from django.contrib import messages
+from django.conf import settings
 
 
 # ------------- Third-Party Libraries ---------------
@@ -29,6 +30,9 @@ from .decorators import student_login_required, admin_login_required
 from .models import (Student, StudentIssueLog, ComponentCategory,
                      Component, Branches,AvailableProjects,Faculty
                      )
+
+# for CRON JOB
+from simulation.simulation_service.services import StudentSimulator, TeacherSimulator
 
 
 # ------------- API ---------------
@@ -930,6 +934,14 @@ def remove_filter(request, key, value=None):
     return q.urlencode()
 
 
+# --------- CRON JOB ------------------
+def daily_jobs_cron(request):
+    if request.GET.get("token") != settings.CRON_SECRET:
+        return HttpResponse(status=403)
+
+    StudentSimulator().issue()
+    TeacherSimulator().run_daily_review()
+    return HttpResponse("ok")
 
 # ------------------------------------
 # --------       API (currently turned off)    -------------
