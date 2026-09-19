@@ -1,7 +1,7 @@
 <div align="center">
 
-<img src="photo1.png" width="45%" alt="Screenshot 1" />
-<img src="photo2.png" width="45%" alt="Screenshot 2" />
+<img src="Data/photo1.png" width="45%" alt="Screenshot 1" />
+<img src="Data/photo2.png" width="45%" alt="Screenshot 2" />
 
 # Inventory Management Website
 <br>

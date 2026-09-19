@@ -23,5 +23,3 @@ iotenv/
 config/.env
 config/.env.simulated
 
-# Extra Files
-local_data/
