@@ -21,14 +21,6 @@ django.setup()
 load_dotenv(BASE_DIR / "config" / ".env.simulated")
 
 
-# ------- Cache imports(only Pycharm error, site works fine) ----------------
-from final.views import (
-    get_all_categories,
-    component_in_category_x,
-    get_all_available_projects,
-    bot_usernames
-)
-
 
 # ----------------   MAIN URL  --------------------------------
 # BASE_URL = os.getenv("RENDER_APP_URL", "http://127.0.0.1:8000")
@@ -48,6 +40,11 @@ class Bot:
     """
 
     def __init__(self):
+        # ------- Cache imports(only Pycharm error, site works fine) ----------------
+        from final.views import (
+            get_all_categories,
+            get_all_available_projects
+        )
         self.base_url = BASE_URL
         self.login_url = f"{self.base_url}/login/"
         self.student_logout_url = f"{self.base_url}/student/logout/"
@@ -176,6 +173,9 @@ class Bot:
 
 
     def submit_request(self):
+        from final.views import (
+            component_in_category_x
+        )
         """Pick a random project + up to 3 components from a random category, submit."""
         random_project = random.choice(self.projects)
         random_category = random.choice(self.categories)
@@ -217,6 +217,9 @@ class StudentSimulator:
 
 
     def issue(self):
+        from final.views import (
+            bot_usernames
+        )
         bot_student_list = bot_usernames()          # ....... List of dictionary hai. ..............
 
         # ...... Selcting 1, 2 students to keep project alive only ............

@@ -46,5 +46,5 @@ urlpatterns = [
 
     # path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs"),
 
-    path("/daily-jobs/", views.daily_jobs_cron, name="daily-jobs-cron"),
+    path("daily-jobs/", views.daily_jobs_cron, name="daily-jobs-cron"),
 ]
