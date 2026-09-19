@@ -6,7 +6,8 @@ from collections import defaultdict
 # ------------- Django Core ---------------
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
-from django.http import HttpResponseBadRequest, HttpResponse, QueryDict, JsonResponse
+from django.http import HttpResponseBadRequest, HttpResponse
+# from django.http import QueryDict, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
@@ -31,7 +32,7 @@ from .models import (Student, StudentIssueLog, ComponentCategory,
 
 
 # ------------- API ---------------
-from .serializers import StudentIssueLogSerializer
+# from .serializers import StudentIssueLogSerializer
 from rest_framework import generics, permissions
 from rest_framework.renderers import JSONRenderer
 from rest_framework.pagination import PageNumberPagination
@@ -931,65 +932,65 @@ def remove_filter(request, key, value=None):
 
 
 # ------------------------------------
-# --------       API     -------------
-class AdminIssuePagination(PageNumberPagination):
-    page_size = 100          # Items per page
-    page_size_query_param = None  # Not allow client to set page size
-    max_page_size = 100     # Maximum allowed for safety
-
-
-class StudentIssueLogAPI(generics.ListAPIView):
-    queryset = StudentIssueLog.objects.select_related("student", "project","component").all()
-
-    serializer_class = StudentIssueLogSerializer
-    permission_classes = [permissions.IsAdminUser]          # Only admins
-    pagination_class = AdminIssuePagination
-    renderer_classes = [JSONRenderer]                       # Force JSON only
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        request = self.request
-
-        # ------------------- Basic filters -------------------
-        category = request.GET.get("category")
-        if category:
-            qs = qs.filter(component__comp_category__comp_cate_category_name__icontains=category)
-
-        branch = request.GET.get("branch")
-        if branch:
-            qs = qs.filter(student__std_branch__branches_branch_code__icontains=branch)
-
-        year = request.GET.get("year")
-        if year:
-            qs = qs.filter(student__std_year=year)
-
-
-        # ------------------- Date filters -------------------
-        form_date_from = request.GET.get("form_date_from")
-        form_date_to = request.GET.get("form_date_to")
-        if form_date_from:
-            qs = qs.filter(std_issue_issue_date__gte=form_date_from)
-        if form_date_to:
-            qs = qs.filter(std_issue_issue_date__lte=form_date_to)
-
-        # Issue date range
-        issue_date_from = request.GET.get("issue_date_from")
-        issue_date_to = request.GET.get("issue_date_to")
-        if issue_date_from:
-            qs = qs.filter(std_issue_issue_date__gte=issue_date_from)
-        if issue_date_to:
-            qs = qs.filter(std_issue_issue_date__lte=issue_date_to)
-
-        # Return date range
-        return_date_from = request.GET.get("return_date_from")
-        return_date_to = request.GET.get("return_date_to")
-        if return_date_from:
-            qs = qs.filter(std_issue_return_date__gte=return_date_from)
-        if return_date_to:
-            qs = qs.filter(std_issue_return_date__lte=return_date_to)
-
-        # ------------------- Ordering -------------------
-        ordering = request.GET.get("ordering", "-std_issue_form_date")
-        qs = qs.order_by(ordering)
-
-        return qs
+# --------       API (currently turned off)    -------------
+# class AdminIssuePagination(PageNumberPagination):
+#     page_size = 100          # Items per page
+#     page_size_query_param = None  # Not allow client to set page size
+#     max_page_size = 100     # Maximum allowed for safety
+# 
+#
+# class StudentIssueLogAPI(generics.ListAPIView):
+#     queryset = StudentIssueLog.objects.select_related("student", "project","component").all()
+#
+#     serializer_class = StudentIssueLogSerializer
+#     permission_classes = [permissions.IsAdminUser]          # Only admins
+#     pagination_class = AdminIssuePagination
+#     renderer_classes = [JSONRenderer]                       # Force JSON only
+#
+#     def get_queryset(self):
+#         qs = super().get_queryset()
+#         request = self.request
+#
+#         # ------------------- Basic filters -------------------
+#         category = request.GET.get("category")
+#         if category:
+#             qs = qs.filter(component__comp_category__comp_cate_category_name__icontains=category)
+#
+#         branch = request.GET.get("branch")
+#         if branch:
+#             qs = qs.filter(student__std_branch__branches_branch_code__icontains=branch)
+#
+#         year = request.GET.get("year")
+#         if year:
+#             qs = qs.filter(student__std_year=year)
+#
+#
+#         # ------------------- Date filters -------------------
+#         form_date_from = request.GET.get("form_date_from")
+#         form_date_to = request.GET.get("form_date_to")
+#         if form_date_from:
+#             qs = qs.filter(std_issue_issue_date__gte=form_date_from)
+#         if form_date_to:
+#             qs = qs.filter(std_issue_issue_date__lte=form_date_to)
+#
+#         # Issue date range
+#         issue_date_from = request.GET.get("issue_date_from")
+#         issue_date_to = request.GET.get("issue_date_to")
+#         if issue_date_from:
+#             qs = qs.filter(std_issue_issue_date__gte=issue_date_from)
+#         if issue_date_to:
+#             qs = qs.filter(std_issue_issue_date__lte=issue_date_to)
+#
+#         # Return date range
+#         return_date_from = request.GET.get("return_date_from")
+#         return_date_to = request.GET.get("return_date_to")
+#         if return_date_from:
+#             qs = qs.filter(std_issue_return_date__gte=return_date_from)
+#         if return_date_to:
+#             qs = qs.filter(std_issue_return_date__lte=return_date_to)
+#
+#         # ------------------- Ordering -------------------
+#         ordering = request.GET.get("ordering", "-std_issue_form_date")
+#         qs = qs.order_by(ordering)
+#
+#         return qs

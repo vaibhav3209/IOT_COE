@@ -8,13 +8,14 @@ db.sqlite3
 # Media and static (generated)
 media/
 staticfilesforproduction/
-#don't publish  staticfilesforproduction on github as same hi files hongi
+#don't publish it as same hi files hongi
 
 # Virtual environment
 iotenv/
 
 # IDE files
 .idea
+.ideabackup/
 .vscode/
 *.code-workspace
 

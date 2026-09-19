@@ -1,14 +1,14 @@
 # --------------- Libraries ---------------------
 from django.urls import path
-from django.conf import settings
+# from django.conf import settings
 
 # --------------- Redirecting ---------------------
 from django.views.generic import RedirectView
 
 
-# ---------------- API Usage--------------------
+# ---------------- API Usage (currently turned off)--------------------
 from . import views
-from .views import StudentIssueLogAPI
+# from .views import StudentIssueLogAPI
 
 
 # ------------------------------------
@@ -44,5 +44,5 @@ urlpatterns = [
     path('teacher/all-students/', views.all_students, name='all_students'),
     path('teacher/all-students/<str:id>', views.student_details, name='student_details'),
 
-    path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs"),
+    # path(f"api/{settings.ADMIN_PATH}",StudentIssueLogAPI.as_view(),name="student-issue-logs"),
 ]

@@ -81,11 +81,7 @@ else:
 # Session cookies
 # --------------------
 SESSION_COOKIE_HTTPONLY = True
-# SESSION_COOKIE_SECURE = config('DEBUG', cast=bool)
-
-
-"""Changed this for the bot signup process"""
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', 1800))
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -94,10 +90,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # --------------------
 # CSRF cookie
 # --------------------
-# CSRF_COOKIE_SECURE =config('DEBUG', cast=bool)
-
-"""Changed this for the bot signup process"""
-CSRF_COOKIE_SECURE =False
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 

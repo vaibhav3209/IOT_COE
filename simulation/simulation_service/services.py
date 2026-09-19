@@ -31,7 +31,8 @@ from final.views import (
 
 
 # ----------------   MAIN URL  --------------------------------
-BASE_URL = os.getenv("RENDER_APP_URL", "http://127.0.0.1:8000")
+# BASE_URL = os.getenv("RENDER_APP_URL", "http://127.0.0.1:8000")
+BASE_URL = os.getenv("RENDER_APP_URL")
 
 class Bot:
     """
@@ -304,3 +305,14 @@ class TeacherSimulator:
                     self._update_status(item, "return")
         finally:
             self.bot.logout(role="teacher")
+
+"""
+Usage: 
+1. For student: 
+    a = StudentSimulator()
+    a.issue()
+    
+2. For Teacher:
+    b = TeacherSimulator()
+    b.run_daily_review()
+"""
