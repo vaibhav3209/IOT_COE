@@ -501,26 +501,27 @@ def submit_request(request):
 
 @admin_login_required
 def admin_dashboard(request):
-    """ Load requests that have issue date == NULL """
+    """
+        1. Load requests that have issue date == NULL
+
+        - Optimisation Trick:
+            1. Always do `select_related` === JOIN as it doesnot fires N+1 Queries
+                for every object
+            If we don't do it ===>> whenever we do log.student.roll_number ==>> It fires another query
+            server side pe load k baad
+    """
 
     requests_qs = (
         StudentIssueLog.objects
         .filter(std_issue_issue_date__isnull=True)
-        .values(
-             'student__std_roll_number',
-            'component__comp_name',
-            'component__comp_category__comp_cate_category_name',
-            'std_issue_form_date',
-            'component__comp_quantity_available',
-            'std_issue_quantity_issued'
-        )
+        .select_related('student', 'component', 'component__comp_category')
         .order_by('-std_issue_form_date')
     )
 
     grouped_requests = defaultdict(list)
     for r in requests_qs:
-        grouped_requests[r['component__comp_category__comp_cate_category_name']].append(r)
-    # print(grouped_requests)
+        grouped_requests[r.component.comp_category.comp_cate_category_name].append(r)
+
 
     # ........ NOTE ...........
     # defaultdict is not loaded in html, so convert it in dictionary ONLY
@@ -794,79 +795,49 @@ def inventory_items(request, slug):
 @admin_login_required
 def update_status(request):
     """ Teacher and BotAdmin side approving and issuing of requests. """
-    roll_number = request.POST.get("roll_number")
-    form_date = request.POST.get("form_date")
-    issue_date = request.POST.get("issue_date")
-    component_name = request.POST.get("component_name")
+    log_id = request.POST.get("log_id")
     status_to_update = request.POST.get("status_to_update")
-    # print("data is:", form_date, action, component_name, roll_number)
+    # print("data is:", log_id, status_to_update)
 
-    # ??????? compoentn , project aand student id se kar sakte kya -->> dates ka hata do
-    if status_to_update in ("approve","reject"):
-        logs = StudentIssueLog.objects.select_related("component", "student").filter(
-            student__std_roll_number=roll_number,
-            component__comp_name=component_name,
-            std_issue_form_date=form_date
-        )
+    if status_to_update not in ("approve", "reject", "return"):
+        return HttpResponse("Invalid action", status=400)
 
-
-    elif status_to_update == "return":
-        logs = StudentIssueLog.objects.select_related("component", "student").filter(
-            student__std_roll_number=roll_number,
-            component__comp_name=component_name,
-            std_issue_issue_date = issue_date,
-            std_issue_return_date__isnull=True
-        )
-
-    else: return HttpResponse("Invalid action", status=400)
-
-    if not logs.exists():
-        return HttpResponse("Log not found", status=404)
 
     with transaction.atomic():
+            # For simplicity:::
+            #   You can assume this log as table row
+            #   corresponding to `models.py -> class StudentIssueLogs`
+        try:
+            log = StudentIssueLog.objects.select_for_update().get(id=log_id)
+        except StudentIssueLog.DoesNotExist:
+            return HttpResponse("Log not found", status=404)
+
         if status_to_update == "reject":
-            # Delete all matching logs
-            deleted_count, _ = logs.delete()
+            log.delete()
+            messages.success(request, "Log deleted successfully.")
+            return redirect('final:admin_dashboard')
 
-            if deleted_count > 0:
-                messages.success(request, "Log deleted successfully.")
-            else:
-                messages.error(request, "No matching log found.")
+        component = Component.objects.select_for_update().get(id=log.component.id)
+        today = now().date()
 
-        else:
-            for log in logs:
-                component = Component.objects.select_for_update().get(
-                    id=log.component_id
+        if status_to_update == "approve":
+            if component.comp_quantity_available < log.std_issue_quantity_issued:
+                return HttpResponse(
+                    f"Not enough quantity available for {log.component.comp_name}",
+                    status=400,
                 )
+            log.std_issue_issue_date = today
+            component.comp_quantity_available -= log.std_issue_quantity_issued
+            log.save()
+            component.save()
+            return redirect('final:admin_dashboard')
 
-                if status_to_update == "approve":
-                    if component.comp_quantity_available < log.std_issue_quantity_issued:
-                        return HttpResponse(
-                            f"Not enough quantity available for {component.comp_name}",
-                            status=400
-                        )
-
-                    # Update log
-                    log.std_issue_issue_date = now().date()
-
-                    # Deduct stock
-                    component.comp_quantity_available -= log.std_issue_quantity_issued
-
-
-                    component.save()
-                    log.save()
-
-                elif status_to_update == "return":
-                    log.std_issue_return_date = now().date()
-
-                    component.comp_quantity_available += log.std_issue_quantity_issued
-                    component.save()
-
-                    log.save()
-                    return redirect('final:approved')
-
-    return redirect('final:admin_dashboard')
-
+        elif status_to_update == "return":
+            log.std_issue_return_date = today
+            component.comp_quantity_available += log.std_issue_quantity_issued
+            log.save()
+            component.save()
+            return redirect('final:approved')
 
 
 @admin_login_required

@@ -31,9 +31,6 @@ from final.views import (
 
 
 # ----------------   MAIN URL  --------------------------------
-# PASTE LATER IN ENV
-# RENDER_APP_URL=https://production-iot-final.onrender.com
-
 BASE_URL = os.getenv("RENDER_APP_URL", "http://127.0.0.1:8000")
 
 class Bot:
@@ -178,11 +175,11 @@ class Bot:
 
 
     def submit_request(self):
-        """Pick a random project + up to 5 components from a random category, submit."""
+        """Pick a random project + up to 3 components from a random category, submit."""
         random_project = random.choice(self.projects)
         random_category = random.choice(self.categories)
         random_components = component_in_category_x(random_category)
-        selected_components = random.sample(random_components, min(5, len(random_components)))
+        selected_components = random.sample(random_components, min(2, len(random_components)))
 
         # ------ NOTE: Personally, keeping every qty = 1 ----------------
         payload = {
@@ -220,6 +217,8 @@ class StudentSimulator:
 
     def issue(self):
         bot_student_list = bot_usernames()          # ....... List of dictionary hai. ..............
+
+        # ...... Selcting 1, 2 students to keep project alive only ............
         cohort = random.sample(bot_student_list, k=random.randint(1,2))
 
         for student in cohort:
@@ -261,17 +260,12 @@ class TeacherSimulator:
 
 
     def _update_status(self, item, status):
-        if status == "return":
-            issue_date = item["std_issue_issue_date"]
-        else :
-            issue_date = None
+
 
         payload = {
-            "roll_number": item["student__std_roll_number"],
-            "component_name": item["component__comp_name"],
-            "form_date": item["std_issue_form_date"],
-            "status_to_update": status,
-            "issue_date": issue_date,
+            "log_id": item["id"],
+            "status_to_update": status
+
         }
         resp = self.bot._post(self.update_status_url, payload)
         if resp.status_code != 200:
@@ -280,8 +274,8 @@ class TeacherSimulator:
 
 
 
-    def run_daily_review(self, approve_pct=(0.7, 0.8), return_pct=(0.7, 0.8)):
-        """ NOTE: We are approving/ returning 70, 80 percent of request"""
+    def run_daily_review(self, approve_pct=(0.5, 0.6), return_pct=(0.3, 0.4)):
+        """ NOTE: We are approving 50, 60 percent of request and returning 30-40%"""
         if not self.bot.login(self.username, self.password):
             print("Teacher not logged in")
             return
@@ -310,7 +304,3 @@ class TeacherSimulator:
                     self._update_status(item, "return")
         finally:
             self.bot.logout(role="teacher")
-
-
-# a = TeacherSimulator()
-# a.run_daily_review()

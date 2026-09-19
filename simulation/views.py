@@ -23,10 +23,6 @@ def pending_issue_requests(request):
         )
         .values(
             "id",
-            "component__comp_quantity_available",
-            "std_issue_quantity_issued",
-            "std_issue_form_date",
-            "component__comp_name",
             "student__std_roll_number"
         )
     )
@@ -40,13 +36,9 @@ def to_return(request):
     """ Used in TeacherSimulation class """
     to_return  = (
         StudentIssueLog.objects
-        .filter(std_issue_return_date__isnull = True)
+        .filter(std_issue_issue_date__isnull = False
+                ,std_issue_return_date__isnull = True)
         .values("id",
-            "component__comp_quantity_available",
-            "std_issue_quantity_issued",
-            "std_issue_form_date",
-            "std_issue_issue_date",
-            "component__comp_name",
             "student__std_roll_number")
     )
 

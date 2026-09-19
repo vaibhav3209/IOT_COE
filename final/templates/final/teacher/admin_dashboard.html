@@ -41,22 +41,16 @@
                         {% for req in requests %}
                         <tr>
                             <td>{{ req.std_issue_form_date}}</td>
-                            <td>{{ req.student__std_roll_number }}</td>
-                            <td>{{ req.component__comp_name }}</td>
-                            <td>{{ req.component__comp_quantity_available }}</td>
+                            <td>{{ req.student.std_roll_number }}</td>
+                            <td>{{ req.component.comp_name }}</td>
+                            <td>{{ req.component.comp_quantity_available }}</td>
                             <td>{{ req.std_issue_quantity_issued }}</td>
 
                             <td>
                                 <form method="POST" action="{% url 'final:update_status' %}">
                                     {% csrf_token %}
-                                    <input type="hidden" name="roll_number"
-                                           value="{{ req.student__std_roll_number }}">
-                                    <input type="hidden" name="form_date"
-                                           value="{{ req.std_issue_form_date|date:'Y-m-d' }}">
-                                    <input type="hidden" name="issue_date"
-                                           value="{{ req.std_issue_issue_date|date:'Y-m-d' }}">
-                                    <input type="hidden" name="component_name"
-                                           value="{{ req.component__comp_name }}">
+                                    <input type="hidden" name="log_id"
+                                           value="{{ req.id }}">
 
                                     <button class="view-all-btn" name="status_to_update" value="approve">Approve</button>
                                     <button class="btn-reject" name="status_to_update" value="reject">Reject</button>
