@@ -214,4 +214,21 @@ Python manage.py register_students
 If You followed till here you will have your website deployed at an instant!!!
 
 
+## Future Improvements
+
+[] Qr code Scanning
+[] Deletion Logic after every Semester
+[] Archive tables
+[] 
+
+
+## I present this project as Databse administrator, data backend , team lead
+so study and explain this project of what you have done according to these roles only.
+
+- How many users it can handle?
+- purpose solved etc
+- ### Working of **Cache**!!!!
+- ## query optimisation, issue in django N+1 queries etc
 ### 👥 Team
+
+

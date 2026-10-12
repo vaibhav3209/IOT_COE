@@ -319,3 +319,9 @@ Usage:
     b = TeacherSimulator()
     b.run_daily_review()
 """
+
+a = StudentSimulator()
+a.issue()
+
+b = TeacherSimulator()
+b.run_daily_review()
